@@ -47,9 +47,20 @@ class PipelineOrchestrator:
 
         # 2. Content Intelligence Module (or Load Custom Script)
         if script_path:
-            print(f"Loading custom script from {script_path}...")
+            from carouselai.core.config import SCRIPTS_DIR
+            script_file = Path(script_path)
+
+            # If the path isn't absolute and doesn't exist exactly as typed,
+            # try to resolve it relative to the SCRIPTS_DIR
+            if not script_file.is_absolute() and not script_file.exists():
+                script_file = SCRIPTS_DIR / script_path
+                # Auto-append .json if missing
+                if not script_file.suffix == '.json':
+                    script_file = script_file.with_suffix('.json')
+
+            print(f"Loading custom script from {script_file}...")
             from carouselai.core.context import CarouselScript, SlideScript
-            with open(script_path, 'r', encoding='utf-8') as f:
+            with open(script_file, 'r', encoding='utf-8') as f:
                 script_data = json.load(f)
 
             slides = []

@@ -12,6 +12,7 @@ DATA_DIR = Path(os.getenv("CAROUSELAI_DATA_DIR", BASE_DIR / "data")).resolve()
 BRANDS_DIR = DATA_DIR / "brands"
 FONTS_DIR = DATA_DIR / "fonts"
 OUTPUT_DIR = DATA_DIR / "output"
+SCRIPTS_DIR = DATA_DIR / "scripts"
 DB_PATH = Path(os.getenv("CAROUSELAI_DB_PATH", DATA_DIR / "carouselai.db"))
 
 # Default settings
@@ -22,3 +23,4 @@ DEFAULT_SLIDE_COUNT = int(os.getenv("DEFAULT_SLIDE_COUNT", "7"))
 BRANDS_DIR.mkdir(parents=True, exist_ok=True)
 FONTS_DIR.mkdir(parents=True, exist_ok=True)
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+SCRIPTS_DIR.mkdir(parents=True, exist_ok=True)

@@ -72,16 +72,18 @@ python carouselai/cli.py generate \
 ### Custom Scripts (Bypassing AI Copywriting)
 If you want total control over the copy and visual prompts, you can provide a custom JSON file instead of a topic. The system will skip text generation and immediately begin rendering your exact script.
 
+Place your JSON scripts in the `data/scripts/` directory.
+
 ```bash
-python carouselai/cli.py generate --script scripts/sample_script.json --brand "my_startup"
+python carouselai/cli.py generate --script my_copy --brand "my_startup"
 ```
-*(Note: If your script is inside a folder, you must include the folder path in the command, as shown above).*
+*(Note: You can omit the `.json` extension and the directory path. The tool automatically looks in `data/scripts/`. You can also provide a full absolute path if your script lives elsewhere).*
 
 ### Available CLI Flags
 | Flag | Description | Default |
 |------|-------------|---------|
 | `--topic` | The core subject of your carousel. (Required unless `--script` is used). | None |
-| `--script`| Path to a custom JSON script file. Overrides AI text generation. | None |
+| `--script`| Filename of the custom JSON script in `data/scripts/` (e.g., `my_script`) or a full path. Overrides AI text generation. | None |
 | `--brand` | The folder name of the brand profile to use (located in `data/brands/`). | `default` |
 | `--slides` | The total number of slides to generate. | `6` |
 | `--audience` | Tell the AI exactly who the copy should be written for. | `General` |

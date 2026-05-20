@@ -19,7 +19,7 @@ def main():
     parser.add_argument("--no-imagen", action="store_true", help="Disable AI image generation (use solid colors instead)")
     parser.add_argument("--audience", default="General", help="Target audience for the copy (e.g., 'beginners', 'tech founders')")
     parser.add_argument("--instructions", help="Specific instructions for the AI copywriter (e.g., 'Make it funny and use emojis')")
-    parser.add_argument("--script", help="Path to a custom JSON script to bypass Gemini text generation")
+    parser.add_argument("--script", help="Filename of the custom JSON script in data/scripts/ (e.g., 'my_script') or a full path. Bypasses AI text generation.")
 
     args = parser.parse_args()
 

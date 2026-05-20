@@ -1,3 +1,4 @@
 /data/output/*
+data/brands/*
 carouselai/*/__pycache__/
 .env

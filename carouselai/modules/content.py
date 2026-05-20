@@ -4,25 +4,23 @@ import os
 from carouselai.core.context import CarouselScript, BrandProfile
 from carouselai.core.exceptions import PipelineError
 
-# We import vertexai lazily inside the class to avoid crashing on startup
-# if the google-cloud-aiplatform package isn't installed during initial testing.
-
 class ContentIntelligenceModule:
 
     def __init__(self):
         self.project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
         self.location = os.getenv("GOOGLE_CLOUD_REGION", "us-central1")
-        self._initialized = False
+        self._client = None
 
-    def _init_vertex(self):
-        if not self._initialized and self.project_id:
+    def _get_client(self):
+        if self._client is None and self.project_id:
             try:
-                import vertexai
-                vertexai.init(project=self.project_id, location=self.location)
-                self._initialized = True
+                from google import genai
+                # Initialize the unified client for the Vertex AI backend
+                self._client = genai.Client(vertexai=True, project=self.project_id, location=self.location)
             except ImportError:
-                print("Warning: google-cloud-aiplatform not installed.")
+                print("Warning: google-genai not installed. Run: pip install google-genai")
                 self.project_id = None # Force dummy mode
+        return self._client
 
     def generate_script(
         self,
@@ -32,18 +30,16 @@ class ContentIntelligenceModule:
         model_name: str
     ) -> CarouselScript:
 
-        self._init_vertex()
+        client = self._get_client()
 
-        if not self.project_id:
-            print("Warning: GOOGLE_CLOUD_PROJECT not set (or SDK missing). Using dummy script generator.")
+        if not client:
+            print("Warning: GOOGLE_CLOUD_PROJECT not set or google-genai missing. Using dummy script generator.")
             return self._generate_dummy_script(topic, brand, slide_count)
 
         try:
-            from vertexai.generative_models import GenerativeModel, GenerationConfig
+            from google.genai import types
         except ImportError:
-            raise PipelineError("google-cloud-aiplatform is required for live generation", stage="content_intelligence")
-
-        model = GenerativeModel(model_name)
+            raise PipelineError("google-genai is required for live generation", stage="content_intelligence")
 
         prompt = f"""
         You are an expert social media copywriter. Create a carousel script about "{topic}".
@@ -75,15 +71,14 @@ class ContentIntelligenceModule:
         - Keep text concise for a carousel format.
         """
 
-        generation_config = GenerationConfig(
-            response_mime_type="application/json",
-            temperature=0.7,
-        )
-
         try:
-            response = model.generate_content(
-                prompt,
-                generation_config=generation_config
+            response = client.models.generate_content(
+                model=model_name,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    temperature=0.7,
+                )
             )
 
             response_json = json.loads(response.text)

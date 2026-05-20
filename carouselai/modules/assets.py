@@ -10,60 +10,64 @@ class AssetGenerationModule:
     def __init__(self):
         self.project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
         self.location = os.getenv("GOOGLE_CLOUD_REGION", "us-central1")
-        self._initialized = False
+        self._client = None
 
-    def _init_vertex(self):
-        if not self._initialized and self.project_id:
+    def _get_client(self):
+        if self._client is None and self.project_id:
             try:
-                import vertexai
-                vertexai.init(project=self.project_id, location=self.location)
-                self._initialized = True
+                from google import genai
+                self._client = genai.Client(vertexai=True, project=self.project_id, location=self.location)
             except ImportError:
-                print("Warning: google-cloud-aiplatform not installed.")
+                print("Warning: google-genai not installed. Run: pip install google-genai")
                 self.project_id = None
+        return self._client
 
     def generate_asset(self, slide: SlideScript, job_id: str) -> Optional[str]:
         """
-        Generates an image using Imagen 3 based on the visual_prompt.
+        Generates an image using Imagen 3 via the unified google-genai SDK.
         Returns the absolute path to the saved image, or None if fallback should be used.
         """
         if not slide.visual_prompt:
             return None
 
-        self._init_vertex()
+        client = self._get_client()
 
-        if not self.project_id:
-            print(f"Warning: GCP not configured. Skipping Imagen generation for slide {slide.index}.")
+        if not client:
+            print(f"Warning: GCP not configured or google-genai missing. Skipping Imagen generation for slide {slide.index}.")
             return None
 
         try:
-            from vertexai.preview.vision_models import ImageGenerationModel
+            from google.genai import types
         except ImportError:
-            print("Warning: google-cloud-aiplatform missing. Skipping image generation.")
+            print("Warning: google-genai missing. Skipping image generation.")
             return None
 
         try:
-            # Note: "imagen-3.0-generate-001" is a placeholder for the latest available model
-            model = ImageGenerationModel.from_pretrained("imagen-3.0-generate-001")
-
             prompt = slide.visual_prompt
             if slide.visual_style_note:
                 prompt += f". Style: {slide.visual_style_note}"
 
-            response = model.generate_images(
+            result = client.models.generate_images(
+                model='imagen-3.0-generate-001',
                 prompt=prompt,
-                number_of_images=1,
-                aspect_ratio="1:1"
+                config=types.GenerateImagesConfig(
+                    number_of_images=1,
+                    aspect_ratio="1:1"
+                )
             )
 
-            if response.images:
+            if result.generated_images:
                 job_dir = OUTPUT_DIR / job_id / "assets"
                 job_dir.mkdir(parents=True, exist_ok=True)
 
                 filename = f"slide_{slide.index:02d}_{uuid.uuid4().hex[:8]}.png"
                 output_path = job_dir / filename
 
-                response.images[0].save(location=str(output_path))
+                # The new SDK provides the image as a PIL Image object directly
+                # via generated_image.image
+                generated_image = result.generated_images[0]
+                generated_image.image.save(str(output_path))
+
                 return str(output_path.resolve())
 
             return None

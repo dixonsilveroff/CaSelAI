@@ -63,7 +63,7 @@ class ContentIntelligenceModule:
                     "slide_type": "hook", // Options: hook, content, stat, quote, cta
                     "headline": "Catchy short headline",
                     "body_text": "Optional body text",
-                    "visual_prompt": "Optional visual description for AI image generation, or null if simple design",
+                    "visual_prompt": "CRITICAL: Describe an abstract, atmospheric background image. NEVER include text, words, letters, or logos in the visual prompt.",
                     "visual_style_note": "Optional style note"
                 }}
             ]
@@ -74,6 +74,7 @@ class ContentIntelligenceModule:
         - Slide 0 must be 'hook'.
         - The last slide must be 'cta'.
         - Keep text concise for a carousel format.
+        - CRITICAL RULE FOR VISUAL PROMPTS: The images generated from your visual prompts will be used as background textures ONLY. Never ask for text, words, or specific typography in the image description.
         """
 
         try:

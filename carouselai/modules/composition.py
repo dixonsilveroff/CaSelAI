@@ -82,7 +82,7 @@ class BaseTemplate:
                 self.image.paste(asset_img, (0, 0))
 
                 # Dark overlay for readability
-                overlay = Image.new("RGBA", (self.width, self.height), (0, 0, 0, 120)) # ~63% opacity
+                overlay = Image.new("RGBA", (self.width, self.height), (0, 0, 0, 135)) # ~63% opacity
                 self.image = Image.alpha_composite(self.image.convert("RGBA"), overlay).convert("RGB")
                 self.draw = ImageDraw.Draw(self.image)
                 return True
@@ -169,19 +169,19 @@ class CTATemplate(BaseTemplate):
             self.image = Image.new("RGB", (self.width, self.height), self._hex_to_rgb(self.brand.secondary_color))
             self.draw = ImageDraw.Draw(self.image)
 
-        font = brand_engine.get_font(self.brand.font_heading, 80, self.brand.assets_dir)
+        font = brand_engine.get_font(self.brand.font_heading, 110, self.brand.assets_dir)
         tagline_font = brand_engine.get_font(self.brand.font_body, 50, self.brand.assets_dir)
 
         text_color = (255, 255, 255) if has_bg else self._hex_to_rgb(self.brand.background_color)
 
-        lines = self._wrap_text(self.slide.headline, font, self.width - (self.margin * 2))
+        lines = self._wrap_text(self.slide.headline.upper(), font, self.width - (self.margin * 2))
 
-        line_height = font.getbbox("A")[3] if hasattr(font, 'getbbox') else 80
+        line_height = font.getbbox("A")[3] if hasattr(font, 'getbbox') else 110
         total_height = len(lines) * (line_height + 20)
         y_text = (self.height - total_height) / 2 - 100
 
         for line in lines:
-            text_width = font.getlength(line) if hasattr(font, 'getlength') else len(line) * 40
+            text_width = font.getlength(line) if hasattr(font, 'getlength') else len(line) * 55
             x_text = (self.width - text_width) / 2
             self.draw.text((x_text, y_text), line, font=font, fill=text_color)
             y_text += line_height + 20

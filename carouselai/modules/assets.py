@@ -9,7 +9,7 @@ from carouselai.core.config import OUTPUT_DIR
 class AssetGenerationModule:
     def __init__(self):
         self.project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
-        self.location = os.getenv("GOOGLE_CLOUD_REGION", "us-central1")
+        self.location = os.getenv("GOOGLE_CLOUD_REGION", "global")
         self._client = None
 
     def _get_client(self):

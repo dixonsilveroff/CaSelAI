@@ -74,12 +74,29 @@ class AssetGenerationModule:
                 )
             )
 
-            # Using Gemini 3.1 Flash Image Preview
-            response = client.models.generate_content(
-                model='gemini-3.1-flash-image-preview',
-                contents=contents,
-                config=generate_content_config,
-            )
+            max_retries = 3
+            response = None
+
+            # Retry loop to handle 429 Quota Exhausted errors
+            for attempt in range(max_retries):
+                try:
+                    # Using Gemini 3.1 Flash Image Preview
+                    response = client.models.generate_content(
+                        model='gemini-3.1-flash-image-preview',
+                        contents=contents,
+                        config=generate_content_config,
+                    )
+                    break # Success, exit retry loop
+                except Exception as e:
+                    error_str = str(e).lower()
+                    if "429" in error_str or "quota" in error_str or "exhausted" in error_str:
+                        if attempt < max_retries - 1:
+                            wait_time = 15 * (attempt + 1) # Exponential-ish backoff: 15s, 30s
+                            print(f"  [Rate Limit Hit] Waiting {wait_time}s before retrying slide {slide.index} (Attempt {attempt+1}/{max_retries})...")
+                            time.sleep(wait_time)
+                            continue
+                    # If it's not a 429, or we're out of retries, raise the error to be caught by the outer block
+                    raise e
 
             job_dir = OUTPUT_DIR / job_id / "assets"
             job_dir.mkdir(parents=True, exist_ok=True)
@@ -88,7 +105,7 @@ class AssetGenerationModule:
             output_path = job_dir / filename
 
             image_saved = False
-            if response.candidates and response.candidates[0].content.parts:
+            if response and response.candidates and response.candidates[0].content.parts:
                 for part in response.candidates[0].content.parts:
                     if hasattr(part, 'inline_data') and part.inline_data:
                         with open(output_path, "wb") as f:
@@ -97,14 +114,16 @@ class AssetGenerationModule:
                         break
 
             if image_saved:
-                time.sleep(3)
+                # Base pause between successful generations to prevent hitting the limit in the first place
+                print(f"  Asset generated for slide {slide.index}. Cooling down for 10s...")
+                time.sleep(10)
                 return str(output_path.resolve())
 
             print(f"Warning: No image data returned from model for slide {slide.index}.")
             return None
 
         except Exception as e:
-            print(f"Image generation failed for slide {slide.index}: {e}. Falling back to solid background.")
+            print(f"Image generation failed for slide {slide.index} after all retries: {e}. Falling back to solid background.")
             return None
 
 asset_module = AssetGenerationModule()

@@ -27,7 +27,9 @@ class ContentIntelligenceModule:
         topic: str,
         brand: BrandProfile,
         slide_count: int,
-        model_name: str
+        model_name: str,
+        audience: str = "General",
+        instructions: str = None
     ) -> CarouselScript:
 
         client = self._get_client()
@@ -41,12 +43,15 @@ class ContentIntelligenceModule:
         except ImportError:
             raise PipelineError("google-genai is required for live generation", stage="content_intelligence")
 
+        extra_instructions = f"\nSpecific Instructions: {instructions}" if instructions else ""
+
         prompt = f"""
         You are an expert social media copywriter. Create a carousel script about "{topic}".
         The carousel must have exactly {slide_count} slides.
 
+        Target Audience: {audience}
         Brand Tone: {brand.tone_keywords}
-        Brand Name: {brand.name}
+        Brand Name: {brand.name}{extra_instructions}
 
         Output valid JSON exactly matching this schema:
         {{

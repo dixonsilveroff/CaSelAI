@@ -13,6 +13,7 @@ class BaseTemplate:
         self.asset_path = asset_path
         self.width = 1080
         self.height = 1080
+        self.margin = 100
         self.image = Image.new("RGB", (self.width, self.height), self._hex_to_rgb(self.brand.background_color))
         self.draw = ImageDraw.Draw(self.image)
 
@@ -20,23 +21,53 @@ class BaseTemplate:
         """Converts a hex color string to an RGB tuple."""
         hex_color = hex_color.lstrip('#')
         if len(hex_color) != 6:
-            return (0, 0, 0) # Fallback to black if invalid
+            return (0, 0, 0)
         return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
 
     def _wrap_text(self, text: str, font, max_width: int):
-        """Wraps text to fit within a given width using basic estimation."""
-        lines = []
-        for line in text.split('\n'):
-            # Simple wrap approximation for MVP
-            if hasattr(font, 'size'):
-                est_char_width = font.size * 0.5
-                chars_per_line = max(1, int(max_width / est_char_width))
-            else:
-                chars_per_line = 40 # fallback for default font
+        """Wraps text accurately using Pillow's getlength."""
+        if not text:
+            return []
 
-            wrapped = textwrap.wrap(line, width=chars_per_line)
-            lines.extend(wrapped if wrapped else [''])
+        lines = []
+        for paragraph in text.split('\n'):
+            words = paragraph.split()
+            current_line = []
+            for word in words:
+                test_line = ' '.join(current_line + [word]) if current_line else word
+                # Check if the line with the new word fits
+                if hasattr(font, 'getlength') and font.getlength(test_line) <= max_width:
+                    current_line.append(word)
+                elif not hasattr(font, 'getlength'):
+                    # Fallback for default font
+                    current_line.append(word)
+                else:
+                    # Line is too long, push current_line to lines and start new line
+                    if current_line:
+                        lines.append(' '.join(current_line))
+                        current_line = [word]
+                    else:
+                        # Single word is longer than max_width
+                        lines.append(word)
+                        current_line = []
+            if current_line:
+                lines.append(' '.join(current_line))
         return lines
+
+    def _draw_footer(self, is_accent_bg=False):
+        """Draws the brand handle at the bottom center of the slide."""
+        if not self.brand.handle:
+            return
+
+        font = brand_engine.get_font(self.brand.font_body, 30, self.brand.assets_dir)
+        text_color = self._hex_to_rgb(self.brand.background_color if is_accent_bg else self.brand.text_color)
+
+        # Determine width of the handle text
+        text_width = font.getlength(self.brand.handle) if hasattr(font, 'getlength') else len(self.brand.handle) * 15
+        x = (self.width - text_width) / 2
+        y = self.height - 80  # 80px from bottom
+
+        self.draw.text((x, y), self.brand.handle, font=font, fill=text_color)
 
     def render(self) -> Image.Image:
         """Must be implemented by subclasses."""
@@ -44,91 +75,127 @@ class BaseTemplate:
 
 class HookTemplate(BaseTemplate):
     def render(self) -> Image.Image:
-        # High contrast, large bold text centered
-        font = brand_engine.get_font(self.brand.font_heading, 80, self.brand.assets_dir)
-        text_color = self._hex_to_rgb(self.brand.text_color)
+        # Accent background for the hook
+        self.image = Image.new("RGB", (self.width, self.height), self._hex_to_rgb(self.brand.primary_color))
+        self.draw = ImageDraw.Draw(self.image)
 
-        lines = self._wrap_text(self.slide.headline, font, self.width - 200)
+        font = brand_engine.get_font(self.brand.font_heading, 90, self.brand.assets_dir)
+        text_color = self._hex_to_rgb(self.brand.background_color) # Use bg color on primary for contrast
 
-        # Calculate total text height
-        line_heights = [font.getbbox(line)[3] - font.getbbox(line)[1] if hasattr(font, 'getbbox') else 20 for line in lines]
-        total_height = sum(line_heights) + (len(lines) - 1) * 20 # 20px line spacing
+        lines = self._wrap_text(self.slide.headline.upper(), font, self.width - (self.margin * 2))
 
-        y_text = (self.height - total_height) / 2
+        # Calculate vertical centering
+        line_height = font.getbbox("A")[3] if hasattr(font, 'getbbox') else 90
+        total_height = len(lines) * (line_height + 20)
+        y_text = (self.height - total_height) / 2 - 50 # Slightly above true center
 
-        for i, line in enumerate(lines):
-            # Calculate width to center it
-            bbox = font.getbbox(line) if hasattr(font, 'getbbox') else (0, 0, len(line)*10, 20)
-            line_width = bbox[2] - bbox[0]
-            x_text = (self.width - line_width) / 2
-
+        for line in lines:
+            text_width = font.getlength(line) if hasattr(font, 'getlength') else len(line) * 45
+            x_text = (self.width - text_width) / 2
             self.draw.text((x_text, y_text), line, font=font, fill=text_color)
-            y_text += line_heights[i] + 20
+            y_text += line_height + 20
 
+        self._draw_footer(is_accent_bg=True)
         return self.image
 
 class ContentTemplate(BaseTemplate):
     def render(self) -> Image.Image:
-        # Heading top left, body below
-        heading_font = brand_engine.get_font(self.brand.font_heading, 60, self.brand.assets_dir)
-        body_font = brand_engine.get_font(self.brand.font_body, 40, self.brand.assets_dir)
+        heading_font = brand_engine.get_font(self.brand.font_heading, 65, self.brand.assets_dir)
+        body_font = brand_engine.get_font(self.brand.font_body, 45, self.brand.assets_dir)
         text_color = self._hex_to_rgb(self.brand.text_color)
+        primary_color = self._hex_to_rgb(self.brand.primary_color)
 
-        y_offset = 100
+        y_offset = self.margin
+
+        # Draw a small accent bar at the top
+        self.draw.rectangle([self.margin, y_offset, self.margin + 150, y_offset + 10], fill=primary_color)
+        y_offset += 50
+
+        # Draw Headline
+        heading_lines = self._wrap_text(self.slide.headline, heading_font, self.width - (self.margin * 2))
+        line_height_h = heading_font.getbbox("A")[3] if hasattr(heading_font, 'getbbox') else 65
+
+        for line in heading_lines:
+            self.draw.text((self.margin, y_offset), line, font=heading_font, fill=text_color)
+            y_offset += line_height_h + 10
+
+        y_offset += 40 # extra space before image/body
 
         # Draw Image if provided
         if self.asset_path and Path(self.asset_path).exists():
             try:
-                asset_img = Image.open(self.asset_path)
-                asset_img = asset_img.resize((880, 500), Image.Resampling.LANCZOS)
-                self.image.paste(asset_img, (100, y_offset))
-                y_offset += 550
+                asset_img = Image.open(self.asset_path).convert("RGBA")
+                # Resize image to fit width, maintaining aspect ratio
+                target_img_width = self.width - (self.margin * 2)
+                aspect_ratio = asset_img.height / asset_img.width
+                target_img_height = int(target_img_width * aspect_ratio)
+
+                # Cap height so it doesn't push body text off screen
+                if target_img_height > 450:
+                    target_img_height = 450
+                    target_img_width = int(target_img_height / aspect_ratio)
+
+                asset_img = asset_img.resize((target_img_width, target_img_height), Image.Resampling.LANCZOS)
+
+                # Center the image horizontally
+                x_img_offset = int((self.width - target_img_width) / 2)
+
+                self.image.paste(asset_img, (x_img_offset, int(y_offset)), asset_img)
+                y_offset += target_img_height + 50
             except Exception as e:
                 print(f"Failed to load asset {self.asset_path}: {e}")
 
-        # Draw Headline
-        heading_lines = self._wrap_text(self.slide.headline, heading_font, self.width - 200)
-        for line in heading_lines:
-            self.draw.text((100, y_offset), line, font=heading_font, fill=text_color)
-            bbox = heading_font.getbbox(line) if hasattr(heading_font, 'getbbox') else (0,0,0,30)
-            y_offset += (bbox[3] - bbox[1]) + 10
-
-        y_offset += 40 # extra space before body
-
         # Draw Body
         if self.slide.body_text:
-            body_lines = self._wrap_text(self.slide.body_text, body_font, self.width - 200)
+            body_lines = self._wrap_text(self.slide.body_text, body_font, self.width - (self.margin * 2))
+            line_height_b = body_font.getbbox("A")[3] if hasattr(body_font, 'getbbox') else 45
             for line in body_lines:
-                self.draw.text((100, y_offset), line, font=body_font, fill=text_color)
-                bbox = body_font.getbbox(line) if hasattr(body_font, 'getbbox') else (0,0,0,20)
-                y_offset += (bbox[3] - bbox[1]) + 15
+                self.draw.text((self.margin, y_offset), line, font=body_font, fill=text_color)
+                y_offset += line_height_b + 15
 
+        self._draw_footer()
         return self.image
 
 class CTATemplate(BaseTemplate):
     def render(self) -> Image.Image:
-        # Accent background, large headline, handle
-        self.image = Image.new("RGB", (self.width, self.height), self._hex_to_rgb(self.brand.primary_color))
+        # Secondary color background for CTA
+        self.image = Image.new("RGB", (self.width, self.height), self._hex_to_rgb(self.brand.secondary_color))
         self.draw = ImageDraw.Draw(self.image)
 
-        font = brand_engine.get_font(self.brand.font_heading, 70, self.brand.assets_dir)
-        handle_font = brand_engine.get_font(self.brand.font_body, 50, self.brand.assets_dir)
-        text_color = self._hex_to_rgb(self.brand.background_color) # use bg color for contrast on primary color
+        font = brand_engine.get_font(self.brand.font_heading, 80, self.brand.assets_dir)
+        tagline_font = brand_engine.get_font(self.brand.font_body, 50, self.brand.assets_dir)
 
-        lines = self._wrap_text(self.slide.headline, font, self.width - 200)
+        # Use background color for text on secondary color
+        text_color = self._hex_to_rgb(self.brand.background_color)
 
-        y_text = 300
+        lines = self._wrap_text(self.slide.headline, font, self.width - (self.margin * 2))
+
+        line_height = font.getbbox("A")[3] if hasattr(font, 'getbbox') else 80
+        total_height = len(lines) * (line_height + 20)
+        y_text = (self.height - total_height) / 2 - 100
+
         for line in lines:
-            bbox = font.getbbox(line) if hasattr(font, 'getbbox') else (0,0,len(line)*10,30)
-            x_text = (self.width - (bbox[2] - bbox[0])) / 2
+            text_width = font.getlength(line) if hasattr(font, 'getlength') else len(line) * 40
+            x_text = (self.width - text_width) / 2
             self.draw.text((x_text, y_text), line, font=font, fill=text_color)
-            y_text += (bbox[3] - bbox[1]) + 20
+            y_text += line_height + 20
 
-        if self.brand.handle:
-            y_text += 100
-            bbox = handle_font.getbbox(self.brand.handle) if hasattr(handle_font, 'getbbox') else (0,0,len(self.brand.handle)*10,20)
-            x_text = (self.width - (bbox[2] - bbox[0])) / 2
-            self.draw.text((x_text, y_text), self.brand.handle, font=handle_font, fill=text_color)
+        # Draw Tagline or Handle as primary CTA focus
+        cta_bottom_text = self.brand.tagline if self.brand.tagline else self.brand.handle
+        if cta_bottom_text:
+            y_text += 80
+            text_width = tagline_font.getlength(cta_bottom_text) if hasattr(tagline_font, 'getlength') else len(cta_bottom_text) * 25
+            x_text = (self.width - text_width) / 2
+
+            # Draw a button-like box behind it
+            padding = 30
+            self.draw.rounded_rectangle(
+                [x_text - padding, y_text - padding + 10, x_text + text_width + padding, y_text + 50 + padding],
+                radius=15,
+                fill=self._hex_to_rgb(self.brand.primary_color)
+            )
+
+            self.draw.text((x_text, y_text), cta_bottom_text, font=tagline_font, fill=self._hex_to_rgb(self.brand.background_color))
 
         return self.image
 
@@ -143,7 +210,6 @@ class CompositionEngine:
         elif slide.slide_type == "cta":
             template = CTATemplate(brand, slide, asset_path)
         else:
-            # content, stat, quote default to ContentTemplate for MVP
             template = ContentTemplate(brand, slide, asset_path)
 
         img = template.render()

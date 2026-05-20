@@ -52,6 +52,8 @@ class PipelineContext:
     slide_count: int
     gemini_model: str
     use_imagen: bool
+    audience: str = "General"
+    instructions: Optional[str] = None
 
     # Filled by Content Intelligence Module
     carousel_script: Optional[CarouselScript] = None

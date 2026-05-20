@@ -17,7 +17,9 @@ class PipelineOrchestrator:
         brand_id: str,
         slide_count: int = DEFAULT_SLIDE_COUNT,
         gemini_model: str = DEFAULT_GEMINI_MODEL,
-        use_imagen: bool = True
+        use_imagen: bool = True,
+        audience: str = "General",
+        instructions: str = None
     ) -> PipelineContext:
 
         job_id = str(uuid.uuid4())
@@ -34,7 +36,9 @@ class PipelineOrchestrator:
             brand=brand,
             slide_count=slide_count,
             gemini_model=gemini_model,
-            use_imagen=use_imagen
+            use_imagen=use_imagen,
+            audience=audience,
+            instructions=instructions
         )
 
         # 2. Content Intelligence Module
@@ -43,7 +47,9 @@ class PipelineOrchestrator:
             topic=context.topic,
             brand=context.brand,
             slide_count=context.slide_count,
-            model_name=context.gemini_model
+            model_name=context.gemini_model,
+            audience=context.audience,
+            instructions=context.instructions
         )
         print(f"Script generated with {len(context.carousel_script.slides)} slides.")
 

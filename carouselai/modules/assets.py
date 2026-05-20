@@ -1,5 +1,6 @@
 import os
 import uuid
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -47,8 +48,9 @@ class AssetGenerationModule:
             if slide.visual_style_note:
                 prompt += f". Style: {slide.visual_style_note}"
 
+            # Switched to the 'fast' model which has higher quota limits
             result = client.models.generate_images(
-                model='imagen-3.0-generate-001',
+                model='imagen-3.0-fast-generate-001',
                 prompt=prompt,
                 config=types.GenerateImagesConfig(
                     number_of_images=1,
@@ -63,10 +65,11 @@ class AssetGenerationModule:
                 filename = f"slide_{slide.index:02d}_{uuid.uuid4().hex[:8]}.png"
                 output_path = job_dir / filename
 
-                # The new SDK provides the image as a PIL Image object directly
-                # via generated_image.image
                 generated_image = result.generated_images[0]
                 generated_image.image.save(str(output_path))
+
+                # Add a brief pause to avoid hitting strict requests-per-minute quotas
+                time.sleep(3)
 
                 return str(output_path.resolve())
 

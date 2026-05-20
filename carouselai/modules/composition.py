@@ -54,13 +54,17 @@ class BaseTemplate:
                 lines.append(' '.join(current_line))
         return lines
 
-    def _draw_footer(self, is_accent_bg=False):
+    def _draw_footer(self, force_white=False, is_accent_bg=False):
         """Draws the brand handle at the bottom center of the slide."""
         if not self.brand.handle:
             return
 
         font = brand_engine.get_font(self.brand.font_body, 30, self.brand.assets_dir)
-        text_color = self._hex_to_rgb(self.brand.background_color if is_accent_bg else self.brand.text_color)
+
+        if force_white:
+            text_color = (255, 255, 255)
+        else:
+            text_color = self._hex_to_rgb(self.brand.background_color if is_accent_bg else self.brand.text_color)
 
         # Determine width of the handle text
         text_width = font.getlength(self.brand.handle) if hasattr(font, 'getlength') else len(self.brand.handle) * 15
@@ -69,18 +73,39 @@ class BaseTemplate:
 
         self.draw.text((x, y), self.brand.handle, font=font, fill=text_color)
 
+    def _apply_background_image(self) -> bool:
+        """Makes the asset the full background with a dark overlay."""
+        if self.asset_path and Path(self.asset_path).exists():
+            try:
+                asset_img = Image.open(self.asset_path).convert("RGBA")
+                asset_img = asset_img.resize((self.width, self.height), Image.Resampling.LANCZOS)
+                self.image.paste(asset_img, (0, 0))
+
+                # Dark overlay for readability
+                overlay = Image.new("RGBA", (self.width, self.height), (0, 0, 0, 160)) # ~63% opacity
+                self.image = Image.alpha_composite(self.image.convert("RGBA"), overlay).convert("RGB")
+                self.draw = ImageDraw.Draw(self.image)
+                return True
+            except Exception as e:
+                print(f"Failed to load background asset: {e}")
+        return False
+
     def render(self) -> Image.Image:
         """Must be implemented by subclasses."""
         raise NotImplementedError()
 
 class HookTemplate(BaseTemplate):
     def render(self) -> Image.Image:
-        # Accent background for the hook
-        self.image = Image.new("RGB", (self.width, self.height), self._hex_to_rgb(self.brand.primary_color))
-        self.draw = ImageDraw.Draw(self.image)
+        has_bg = self._apply_background_image()
+
+        if not has_bg:
+            # Accent background for the hook
+            self.image = Image.new("RGB", (self.width, self.height), self._hex_to_rgb(self.brand.primary_color))
+            self.draw = ImageDraw.Draw(self.image)
 
         font = brand_engine.get_font(self.brand.font_heading, 90, self.brand.assets_dir)
-        text_color = self._hex_to_rgb(self.brand.background_color) # Use bg color on primary for contrast
+
+        text_color = (255, 255, 255) if has_bg else self._hex_to_rgb(self.brand.background_color)
 
         lines = self._wrap_text(self.slide.headline.upper(), font, self.width - (self.margin * 2))
 
@@ -95,20 +120,23 @@ class HookTemplate(BaseTemplate):
             self.draw.text((x_text, y_text), line, font=font, fill=text_color)
             y_text += line_height + 20
 
-        self._draw_footer(is_accent_bg=True)
+        self._draw_footer(force_white=has_bg, is_accent_bg=(not has_bg))
         return self.image
 
 class ContentTemplate(BaseTemplate):
     def render(self) -> Image.Image:
+        has_bg = self._apply_background_image()
+
         heading_font = brand_engine.get_font(self.brand.font_heading, 65, self.brand.assets_dir)
         body_font = brand_engine.get_font(self.brand.font_body, 45, self.brand.assets_dir)
-        text_color = self._hex_to_rgb(self.brand.text_color)
-        primary_color = self._hex_to_rgb(self.brand.primary_color)
+
+        text_color = (255, 255, 255) if has_bg else self._hex_to_rgb(self.brand.text_color)
+        accent_color = (255, 255, 255) if has_bg else self._hex_to_rgb(self.brand.primary_color)
 
         y_offset = self.margin
 
         # Draw a small accent bar at the top
-        self.draw.rectangle([self.margin, y_offset, self.margin + 150, y_offset + 10], fill=primary_color)
+        self.draw.rectangle([self.margin, y_offset, self.margin + 150, y_offset + 10], fill=accent_color)
         y_offset += 50
 
         # Draw Headline
@@ -119,31 +147,7 @@ class ContentTemplate(BaseTemplate):
             self.draw.text((self.margin, y_offset), line, font=heading_font, fill=text_color)
             y_offset += line_height_h + 10
 
-        y_offset += 40 # extra space before image/body
-
-        # Draw Image if provided
-        if self.asset_path and Path(self.asset_path).exists():
-            try:
-                asset_img = Image.open(self.asset_path).convert("RGBA")
-                # Resize image to fit width, maintaining aspect ratio
-                target_img_width = self.width - (self.margin * 2)
-                aspect_ratio = asset_img.height / asset_img.width
-                target_img_height = int(target_img_width * aspect_ratio)
-
-                # Cap height so it doesn't push body text off screen
-                if target_img_height > 450:
-                    target_img_height = 450
-                    target_img_width = int(target_img_height / aspect_ratio)
-
-                asset_img = asset_img.resize((target_img_width, target_img_height), Image.Resampling.LANCZOS)
-
-                # Center the image horizontally
-                x_img_offset = int((self.width - target_img_width) / 2)
-
-                self.image.paste(asset_img, (x_img_offset, int(y_offset)), asset_img)
-                y_offset += target_img_height + 50
-            except Exception as e:
-                print(f"Failed to load asset {self.asset_path}: {e}")
+        y_offset += 60 # extra space before body
 
         # Draw Body
         if self.slide.body_text:
@@ -153,20 +157,22 @@ class ContentTemplate(BaseTemplate):
                 self.draw.text((self.margin, y_offset), line, font=body_font, fill=text_color)
                 y_offset += line_height_b + 15
 
-        self._draw_footer()
+        self._draw_footer(force_white=has_bg)
         return self.image
 
 class CTATemplate(BaseTemplate):
     def render(self) -> Image.Image:
-        # Secondary color background for CTA
-        self.image = Image.new("RGB", (self.width, self.height), self._hex_to_rgb(self.brand.secondary_color))
-        self.draw = ImageDraw.Draw(self.image)
+        has_bg = self._apply_background_image()
+
+        if not has_bg:
+            # Secondary color background for CTA
+            self.image = Image.new("RGB", (self.width, self.height), self._hex_to_rgb(self.brand.secondary_color))
+            self.draw = ImageDraw.Draw(self.image)
 
         font = brand_engine.get_font(self.brand.font_heading, 80, self.brand.assets_dir)
         tagline_font = brand_engine.get_font(self.brand.font_body, 50, self.brand.assets_dir)
 
-        # Use background color for text on secondary color
-        text_color = self._hex_to_rgb(self.brand.background_color)
+        text_color = (255, 255, 255) if has_bg else self._hex_to_rgb(self.brand.background_color)
 
         lines = self._wrap_text(self.slide.headline, font, self.width - (self.margin * 2))
 
@@ -189,13 +195,16 @@ class CTATemplate(BaseTemplate):
 
             # Draw a button-like box behind it
             padding = 30
+            button_fill = self._hex_to_rgb(self.brand.primary_color)
+            button_text_color = self._hex_to_rgb(self.brand.background_color)
+
             self.draw.rounded_rectangle(
                 [x_text - padding, y_text - padding + 10, x_text + text_width + padding, y_text + 50 + padding],
                 radius=15,
-                fill=self._hex_to_rgb(self.brand.primary_color)
+                fill=button_fill
             )
 
-            self.draw.text((x_text, y_text), cta_bottom_text, font=tagline_font, fill=self._hex_to_rgb(self.brand.background_color))
+            self.draw.text((x_text, y_text), cta_bottom_text, font=tagline_font, fill=button_text_color)
 
         return self.image
 

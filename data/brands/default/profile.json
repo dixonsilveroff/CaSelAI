@@ -1,0 +1,11 @@
+{
+  "name": "Default Brand",
+  "primary_color": "#0055FF",
+  "secondary_color": "#00D4FF",
+  "background_color": "#F8F9FA",
+  "text_color": "#1A1A2E",
+  "font_heading": "Montserrat-Bold.ttf",
+  "font_body": "OpenSans-Regular.ttf",
+  "handle": "@default_brand",
+  "tone_keywords": "professional, clear, modern"
+}

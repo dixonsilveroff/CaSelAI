@@ -17,6 +17,7 @@ class AssetGenerationModule:
         if self._client is None and self.project_id:
             try:
                 from google import genai
+                # Initialize the unified client for the Vertex AI backend using ADC
                 self._client = genai.Client(vertexai=True, project=self.project_id, location=self.location)
             except ImportError:
                 print("Warning: google-genai not installed. Run: pip install google-genai")
@@ -25,8 +26,7 @@ class AssetGenerationModule:
 
     def generate_asset(self, slide: SlideScript, job_id: str) -> Optional[str]:
         """
-        Generates an image using Imagen 3 via the unified google-genai SDK.
-        Returns the absolute path to the saved image, or None if fallback should be used.
+        Generates an image using Gemini 3.1 Flash Image Preview (Nano Banana).
         """
         if not slide.visual_prompt:
             return None
@@ -34,7 +34,7 @@ class AssetGenerationModule:
         client = self._get_client()
 
         if not client:
-            print(f"Warning: GCP not configured or google-genai missing. Skipping Imagen generation for slide {slide.index}.")
+            print(f"Warning: API Key or GCP not configured. Skipping image generation for slide {slide.index}.")
             return None
 
         try:
@@ -44,39 +44,67 @@ class AssetGenerationModule:
             return None
 
         try:
-            prompt = slide.visual_prompt
+            prompt = f"Generate an image: {slide.visual_prompt}"
             if slide.visual_style_note:
                 prompt += f". Style: {slide.visual_style_note}"
 
-            # Switched to the 'fast' model which has higher quota limits
-            result = client.models.generate_images(
-                model='imagen-3.0-fast-generate-001',
-                prompt=prompt,
-                config=types.GenerateImagesConfig(
-                    number_of_images=1,
-                    aspect_ratio="1:1"
+            contents = [
+                types.Content(
+                    role="user",
+                    parts=[types.Part.from_text(text=prompt)]
+                )
+            ]
+
+            generate_content_config = types.GenerateContentConfig(
+                temperature=1.0,
+                response_modalities=["IMAGE"],
+                safety_settings=[
+                    types.SafetySetting(category="HARM_CATEGORY_HATE_SPEECH", threshold="OFF"),
+                    types.SafetySetting(category="HARM_CATEGORY_DANGEROUS_CONTENT", threshold="OFF"),
+                    types.SafetySetting(category="HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold="OFF"),
+                    types.SafetySetting(category="HARM_CATEGORY_HARASSMENT", threshold="OFF")
+                ],
+                image_config=types.ImageConfig(
+                    aspect_ratio="1:1",
+                    image_size="1K",
+                    output_mime_type="image/png",
+                ),
+                thinking_config=types.ThinkingConfig(
+                    thinking_level="MINIMAL",
                 )
             )
 
-            if result.generated_images:
-                job_dir = OUTPUT_DIR / job_id / "assets"
-                job_dir.mkdir(parents=True, exist_ok=True)
+            # Using Gemini 3.1 Flash Image Preview
+            response = client.models.generate_content(
+                model='gemini-3.1-flash-image-preview',
+                contents=contents,
+                config=generate_content_config,
+            )
 
-                filename = f"slide_{slide.index:02d}_{uuid.uuid4().hex[:8]}.png"
-                output_path = job_dir / filename
+            job_dir = OUTPUT_DIR / job_id / "assets"
+            job_dir.mkdir(parents=True, exist_ok=True)
 
-                generated_image = result.generated_images[0]
-                generated_image.image.save(str(output_path))
+            filename = f"slide_{slide.index:02d}_{uuid.uuid4().hex[:8]}.png"
+            output_path = job_dir / filename
 
-                # Add a brief pause to avoid hitting strict requests-per-minute quotas
+            image_saved = False
+            if response.candidates and response.candidates[0].content.parts:
+                for part in response.candidates[0].content.parts:
+                    if hasattr(part, 'inline_data') and part.inline_data:
+                        with open(output_path, "wb") as f:
+                            f.write(part.inline_data.data)
+                        image_saved = True
+                        break
+
+            if image_saved:
                 time.sleep(3)
-
                 return str(output_path.resolve())
 
+            print(f"Warning: No image data returned from model for slide {slide.index}.")
             return None
 
         except Exception as e:
-            print(f"Imagen generation failed for slide {slide.index}: {e}. Falling back to solid background.")
+            print(f"Image generation failed for slide {slide.index}: {e}. Falling back to solid background.")
             return None
 
 asset_module = AssetGenerationModule()

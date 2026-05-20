@@ -15,7 +15,7 @@ class ContentIntelligenceModule:
         if self._client is None and self.project_id:
             try:
                 from google import genai
-                # Initialize the unified client for the Vertex AI backend
+                # Initialize the unified client for the Vertex AI backend using ADC
                 self._client = genai.Client(vertexai=True, project=self.project_id, location=self.location)
             except ImportError:
                 print("Warning: google-genai not installed. Run: pip install google-genai")

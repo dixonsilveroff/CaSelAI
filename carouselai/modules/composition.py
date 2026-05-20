@@ -82,7 +82,7 @@ class BaseTemplate:
                 self.image.paste(asset_img, (0, 0))
 
                 # Dark overlay for readability
-                overlay = Image.new("RGBA", (self.width, self.height), (0, 0, 0, 160)) # ~63% opacity
+                overlay = Image.new("RGBA", (self.width, self.height), (0, 0, 0, 120)) # ~63% opacity
                 self.image = Image.alpha_composite(self.image.convert("RGBA"), overlay).convert("RGB")
                 self.draw = ImageDraw.Draw(self.image)
                 return True
@@ -136,8 +136,8 @@ class ContentTemplate(BaseTemplate):
         y_offset = self.margin
 
         # Draw a small accent bar at the top
-        self.draw.rectangle([self.margin, y_offset, self.margin + 150, y_offset + 10], fill=accent_color)
-        y_offset += 50
+        # self.draw.rectangle([self.margin, y_offset, self.margin + 150, y_offset + 10], fill=accent_color)
+        # y_offset += 50
 
         # Draw Headline
         heading_lines = self._wrap_text(self.slide.headline, heading_font, self.width - (self.margin * 2))

@@ -15,7 +15,7 @@ OUTPUT_DIR = DATA_DIR / "output"
 DB_PATH = Path(os.getenv("CAROUSELAI_DB_PATH", DATA_DIR / "carouselai.db"))
 
 # Default settings
-DEFAULT_GEMINI_MODEL = os.getenv("DEFAULT_GEMINI_MODEL", "gemini-1.5-flash")
+DEFAULT_GEMINI_MODEL = os.getenv("DEFAULT_GEMINI_MODEL", "gemini-2.5-flash")
 DEFAULT_SLIDE_COUNT = int(os.getenv("DEFAULT_SLIDE_COUNT", "6"))
 
 # Ensure essential directories exist

@@ -19,12 +19,16 @@ class PipelineOrchestrator:
         gemini_model: str = DEFAULT_GEMINI_MODEL,
         use_imagen: bool = True,
         audience: str = "General",
-        instructions: str = None
+        instructions: str = None,
+        script_path: str = None
     ) -> PipelineContext:
 
         job_id = str(uuid.uuid4())
         print(f"Starting pipeline for job {job_id}")
-        print(f"Topic: '{topic}'")
+        if script_path:
+            print(f"Using custom script: '{script_path}'")
+        else:
+            print(f"Topic: '{topic}'")
 
         # 1. Load Brand Profile
         print(f"Loading brand profile '{brand_id}'...")
@@ -32,7 +36,7 @@ class PipelineOrchestrator:
 
         context = PipelineContext(
             job_id=job_id,
-            topic=topic,
+            topic=topic if not script_path else "Custom Script Execution",
             brand=brand,
             slide_count=slide_count,
             gemini_model=gemini_model,
@@ -41,17 +45,36 @@ class PipelineOrchestrator:
             instructions=instructions
         )
 
-        # 2. Content Intelligence Module
-        print("Generating carousel script via Content Intelligence Module...")
-        context.carousel_script = content_module.generate_script(
-            topic=context.topic,
-            brand=context.brand,
-            slide_count=context.slide_count,
-            model_name=context.gemini_model,
-            audience=context.audience,
-            instructions=context.instructions
-        )
-        print(f"Script generated with {len(context.carousel_script.slides)} slides.")
+        # 2. Content Intelligence Module (or Load Custom Script)
+        if script_path:
+            print(f"Loading custom script from {script_path}...")
+            from carouselai.core.context import CarouselScript, SlideScript
+            with open(script_path, 'r', encoding='utf-8') as f:
+                script_data = json.load(f)
+
+            slides = []
+            for s in script_data.get("slides", []):
+                slides.append(SlideScript(**s))
+
+            context.carousel_script = CarouselScript(
+                title=script_data.get("title", "Custom Script"),
+                target_audience=script_data.get("target_audience", "Custom Audience"),
+                slides=slides
+            )
+            # Update slide_count to match the custom script
+            context.slide_count = len(context.carousel_script.slides)
+        else:
+            print("Generating carousel script via Content Intelligence Module...")
+            context.carousel_script = content_module.generate_script(
+                topic=context.topic,
+                brand=context.brand,
+                slide_count=context.slide_count,
+                model_name=context.gemini_model,
+                audience=context.audience,
+                instructions=context.instructions
+            )
+
+        print(f"Script loaded with {len(context.carousel_script.slides)} slides.")
 
         # 3. Asset Generation Module
         if context.use_imagen:

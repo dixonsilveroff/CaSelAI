@@ -33,7 +33,7 @@ pip install google-genai       # Ensure the new unified SDK is installed
 ```
 
 ### 3. Authentication
-CarouselAI uses Google Cloud Application Default Credentials (ADC) to authenticate with Vertex AI.
+CarouselAI uses Google Cloud Application Default Credentials (ADC) to authenticate with Vertex AI. This ensures enterprise-grade security and avoids the need to manage standalone API keys.
 
 1. Install the [Google Cloud CLI](https://cloud.google.com/sdk/docs/install).
 2. Authenticate your local machine:
@@ -43,8 +43,8 @@ CarouselAI uses Google Cloud Application Default Credentials (ADC) to authentica
 3. Create a `.env` file in the root of the project and set your Project ID:
    ```env
    GOOGLE_CLOUD_PROJECT=your-gcp-project-id
+   GOOGLE_CLOUD_REGION=us-central1
    ```
-*(Note: Do not put a `GOOGLE_CLOUD_API_KEY` in your `.env` if you are using ADC, as it will cause a credentials conflict).*
 
 ---
 
@@ -69,15 +69,24 @@ python carouselai/cli.py generate \
   --instructions "Make the hook a controversial question. End with a CTA to download a guide."
 ```
 
+### Custom Scripts (Bypassing AI Copywriting)
+If you want total control over the copy and visual prompts, you can provide a custom JSON file instead of a topic. The system will skip text generation and immediately begin rendering your exact script.
+
+```bash
+python carouselai/cli.py generate --script scripts/sample_script.json --brand "my_startup"
+```
+*(Note: If your script is inside a folder, you must include the folder path in the command, as shown above).*
+
 ### Available CLI Flags
 | Flag | Description | Default |
 |------|-------------|---------|
-| `--topic` | **(Required)** The core subject of your carousel. | None |
+| `--topic` | The core subject of your carousel. (Required unless `--script` is used). | None |
+| `--script`| Path to a custom JSON script file. Overrides AI text generation. | None |
 | `--brand` | The folder name of the brand profile to use (located in `data/brands/`). | `default` |
-| `--slides` | The total number of slides to generate (including Hook and CTA). | `6` |
+| `--slides` | The total number of slides to generate. | `6` |
 | `--audience` | Tell the AI exactly who the copy should be written for. | `General` |
 | `--instructions` | Specific steering instructions for the copywriter (e.g., tone, structure). | None |
-| `--no-imagen` | Add this flag to completely disable AI image generation. Slides will render using solid brand colors. | False |
+| `--no-imagen` | Disable AI image generation. Slides will render using solid brand colors. | False |
 | `--model` | The Gemini model used for *text* generation. | `gemini-1.5-flash` |
 
 ---

@@ -169,8 +169,8 @@ class CTATemplate(BaseTemplate):
             self.image = Image.new("RGB", (self.width, self.height), self._hex_to_rgb(self.brand.secondary_color))
             self.draw = ImageDraw.Draw(self.image)
 
-        font = brand_engine.get_font(self.brand.font_heading, 110, self.brand.assets_dir)
-        tagline_font = brand_engine.get_font(self.brand.font_body, 50, self.brand.assets_dir)
+        font = brand_engine.get_font(self.brand.font_heading, 80, self.brand.assets_dir)
+        tagline_font = brand_engine.get_font(self.brand.font_body, 60, self.brand.assets_dir)
 
         text_color = (255, 255, 255) if has_bg else self._hex_to_rgb(self.brand.background_color)
 
@@ -178,13 +178,28 @@ class CTATemplate(BaseTemplate):
 
         line_height = font.getbbox("A")[3] if hasattr(font, 'getbbox') else 110
         total_height = len(lines) * (line_height + 20)
-        y_text = (self.height - total_height) / 2 - 100
+
+        # Shift text up if there is a body text
+        y_text = (self.height - total_height) / 2 - (150 if self.slide.body_text else 100)
 
         for line in lines:
             text_width = font.getlength(line) if hasattr(font, 'getlength') else len(line) * 55
             x_text = (self.width - text_width) / 2
             self.draw.text((x_text, y_text), line, font=font, fill=text_color)
             y_text += line_height + 20
+
+        # Draw Body Text (Where specific CTA instructions usually go)
+        if self.slide.body_text:
+            y_text += 20
+            body_font = brand_engine.get_font(self.brand.font_body, 45, self.brand.assets_dir)
+            body_lines = self._wrap_text(self.slide.body_text, body_font, self.width - (self.margin * 2))
+            line_height_b = body_font.getbbox("A")[3] if hasattr(body_font, 'getbbox') else 45
+
+            for line in body_lines:
+                text_width = body_font.getlength(line) if hasattr(body_font, 'getlength') else len(line) * 20
+                x_text = (self.width - text_width) / 2
+                self.draw.text((x_text, y_text), line, font=body_font, fill=text_color)
+                y_text += line_height_b + 15
 
         # Draw Tagline or Handle as primary CTA focus
         cta_bottom_text = self.brand.tagline if self.brand.tagline else self.brand.handle

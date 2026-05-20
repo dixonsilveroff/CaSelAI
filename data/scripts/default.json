@@ -1,0 +1,38 @@
+{
+  "title": "The Power of Custom Scripts",
+  "target_audience": "Content Creators",
+  "slides": [
+    {
+      "index": 0,
+      "slide_type": "hook",
+      "headline": "Stop relying on AI for everything.",
+      "body_text": null,
+      "visual_prompt": "A minimalist, dark atmospheric background with subtle glowing neon lines.",
+      "visual_style_note": "cyberpunk, dark mode"
+    },
+    {
+      "index": 1,
+      "slide_type": "content",
+      "headline": "Take back creative control.",
+      "body_text": "AI is great for generating ideas, but sometimes you know exactly what you want to say. Writing your own copy guarantees your unique voice shines through.",
+      "visual_prompt": "A clean, modern abstract geometric pattern in dark gray and subtle blue.",
+      "visual_style_note": "corporate minimalism"
+    },
+    {
+      "index": 2,
+      "slide_type": "content",
+      "headline": "Control the visual narrative.",
+      "body_text": "By manually writing the visual_prompt for each slide, you dictate exactly what the AI generates for the background, ensuring perfect brand alignment.",
+      "visual_prompt": "A beautiful, soft focus photograph of a blank canvas on an artist's easel.",
+      "visual_style_note": "cinematic lighting, shallow depth of field"
+    },
+    {
+      "index": 3,
+      "slide_type": "cta",
+      "headline": "READY TO TAKE CONTROL?",
+      "body_text": "Use the --script flag with your own JSON file to render this exact carousel.",
+      "visual_prompt": "A dark, moody abstract texture with a subtle spotlight effect in the center.",
+      "visual_style_note": "high contrast, minimalist"
+    }
+  ]
+}
